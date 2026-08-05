@@ -1,7 +1,8 @@
 """集中管理追蹤幣種、時框與技術指標參數。"""
 
-# 交易所使用 ccxt 的 symbol 格式(例如 "BTC/USDT")
-SYMBOLS = ["BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT", "XRP/USDT"]
+# 交易所使用 ccxt 的 symbol 格式(例如 "BTC/USD")
+# 使用 Kraken:Binance 會封鎖 Streamlit Cloud 等雲端主機所在地區(HTTP 451)
+SYMBOLS = ["BTC/USD", "ETH/USD", "ADA/USD", "SOL/USD", "XRP/USD"]
 
 # K 線時框(4 小時)
 TIMEFRAME = "4h"

@@ -1,11 +1,11 @@
-"""從 Binance 公開 API 抓取 OHLCV K 線資料。"""
+"""從 Kraken 公開 API 抓取 OHLCV K 線資料。"""
 
 import ccxt
 import pandas as pd
 
 import config
 
-_exchange = ccxt.binance()
+_exchange = ccxt.kraken()
 
 
 def fetch_ohlcv(symbol: str) -> pd.DataFrame:
