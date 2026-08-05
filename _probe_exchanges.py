@@ -7,11 +7,14 @@
 import ccxt
 
 CANDIDATES = {
-    "binance": ["MU/USDT:USDT", "QQQ/USDT:USDT", "MRVL/USDT:USDT", "DRAM/USDT:USDT"],
-    "bybit": ["MU/USDT:USDT", "QQQ/USDT:USDT", "MRVL/USDT:USDT", "DRAM/USDT:USDT"],
-    "gate": ["MU/USDT:USDT", "QQQX/USDT:USDT", "MRVL/USDT:USDT", "DRAM/USDT:USDT"],
-    "okx": ["MU/USDT:USDT", "QQQ/USDT:USDT", "MRVL/USDT:USDT", "DRAM/USDT:USDT"],
-    "hyperliquid": ["MU/USDC", "QQQ/USDC"],
+    "okx": [
+        "BTC/USDT",
+        "ETH/USDT",
+        "MU/USDT:USDT",
+        "QQQ/USDT:USDT",
+        "MRVL/USDT:USDT",
+        "DRAM/USDT:USDT",
+    ],
 }
 
 
