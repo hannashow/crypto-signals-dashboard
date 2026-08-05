@@ -1,6 +1,5 @@
 streamlit==1.61.0
 starlette==0.46.1
-ccxt
 pandas
 ta
 plotly

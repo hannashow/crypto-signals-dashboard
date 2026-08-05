@@ -19,7 +19,7 @@ jobs:
           python-version: "3.12"
 
       - name: 安裝依賴
-        run: pip install ccxt pandas ta requests
+        run: pip install pandas ta requests
 
       # 用 cache 保存上次通知過的訊號狀態,避免同一訊號重複通知。
       # 每次執行寫入新的 cache key,restore-keys 以前綴比對取回最近一次的狀態。
