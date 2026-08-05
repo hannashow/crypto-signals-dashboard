@@ -2,7 +2,7 @@
 
 # 交易所使用 ccxt 的 symbol 格式(例如 "BTC/USD")
 # 使用 Kraken:Binance 會封鎖 Streamlit Cloud 等雲端主機所在地區(HTTP 451)
-SYMBOLS = ["BTC/USD", "ETH/USD", "ADA/USD", "SOL/USD", "XRP/USD"]
+SYMBOLS = ["BTC/USD", "ETH/USD"]
 
 # K 線時框(4 小時)
 TIMEFRAME = "4h"
