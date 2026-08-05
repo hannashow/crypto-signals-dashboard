@@ -26,4 +26,4 @@ BB_PERIOD = 20
 BB_STD = 2
 
 # 通知門檻:分數絕對值達到此值才發送 LINE 通知(2 = 中等以上訊號)
-ALERT_MIN_SCORE = 2
+ALERT_MIN_SCORE = 1
