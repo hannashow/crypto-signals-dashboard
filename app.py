@@ -72,7 +72,7 @@ def make_candlestick_chart(df: pd.DataFrame, symbol: str) -> go.Figure:
 st.set_page_config(page_title="加密貨幣多空訊號儀表板", layout="wide")
 
 st.title("加密貨幣多空訊號儀表板")
-st.caption(f"資料來源:Kraken 公開 API｜時框:{config.TIMEFRAME}｜僅供參考,非投資建議")
+st.caption(f"資料來源:OKX 公開 API｜時框:{config.TIMEFRAME}｜僅供參考,非投資建議")
 
 if st.button("🔄 重新整理"):
     st.session_state["fetched"] = True
