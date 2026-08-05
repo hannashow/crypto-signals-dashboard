@@ -6,10 +6,14 @@
 """
 
 import os
+import re
 
 import requests
 
 PUSH_ENDPOINT = "https://api.line.me/v2/bot/message/push"
+
+# LINE user ID 格式:U 開頭 + 32 個十六進位字元
+USER_ID_PATTERN = re.compile(r"^U[0-9a-f]{32}$")
 
 
 def send_line_message(text: str) -> None:
@@ -19,6 +23,12 @@ def send_line_message(text: str) -> None:
     if not token or not user_id:
         raise RuntimeError(
             "缺少 LINE_CHANNEL_ACCESS_TOKEN 或 LINE_USER_ID 環境變數"
+        )
+    if not USER_ID_PATTERN.match(user_id):
+        raise RuntimeError(
+            "LINE_USER_ID 格式不正確,應為 U 開頭加 32 個十六進位字元。"
+            "請至 LINE Developers Console 的 Basic settings 分頁底部複製 Your user ID"
+            "(不是 Channel ID,也不是 @ 開頭的 Basic ID)"
         )
 
     response = requests.post(
