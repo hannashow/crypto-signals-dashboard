@@ -30,4 +30,8 @@ def send_line_message(text: str) -> None:
         json={"to": user_id, "messages": [{"type": "text", "text": text}]},
         timeout=15,
     )
-    response.raise_for_status()
+    if not response.ok:
+        # LINE 會在回應內容說明失敗原因,一併拋出方便排查
+        raise RuntimeError(
+            f"LINE API 回應 {response.status_code}:{response.text}"
+        )
