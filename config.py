@@ -12,8 +12,9 @@ SYMBOLS = [
     "DRAM/USDT:USDT",  # DRAM 記憶體指數 永續合約
 ]
 
-# K 線時框(4 小時)
-TIMEFRAME = "4h"
+# K 線時框(1 小時)
+# 與每小時檢查一次的排程對齊,每次檢查剛好有一根新收盤的 K 棒。
+TIMEFRAME = "1h"
 
 # 每次抓取的 K 線根數(需足夠計算 EMA50 等指標的暖機期)
 OHLCV_LIMIT = 200
@@ -46,5 +47,8 @@ VOLUME_DRY_RATIO = 0.7       # 低於均量幾倍視為縮量
 # 因此僅對 24 小時連續交易的加密貨幣套用。
 VOLUME_CONFIRM_SYMBOLS = ["BTC/USDT", "ETH/USDT"]
 
-# 通知門檻:分數絕對值達到此值才發送 LINE 通知(1 = 只要不是中性就通知)
-ALERT_MIN_SCORE = 1
+# 通知門檻:分數絕對值達到此值才發送 LINE 通知。
+# 設為 2 表示需要兩條規則同時指向同一方向,可過濾 1 小時時框的雜訊。
+# 實測(23 天回溯):1h 搭配門檻 1 每月約 542 則,會超出 LINE 免費額度 200 則;
+# 搭配門檻 2 則約 117 則。
+ALERT_MIN_SCORE = 2
