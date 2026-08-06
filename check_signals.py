@@ -61,7 +61,7 @@ def main() -> None:
             continue
 
         df = indicators.add_indicators(result)
-        ev = signals.evaluate(df)
+        ev = signals.evaluate(df, symbol)
         print(f"{symbol} {ev['label']}(分數 {ev['score']})")
 
         if abs(ev["score"]) >= config.ALERT_MIN_SCORE:

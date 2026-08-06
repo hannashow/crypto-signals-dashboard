@@ -31,4 +31,9 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df["bb_upper"] = bb.bollinger_hband()
     df["bb_lower"] = bb.bollinger_lband()
 
+    # 均量與量能倍數。rolling 只涵蓋該列與之前的 K 棒,
+    # 因此在最後一根已收盤 K 棒上取值時,基準不會混入尚未收盤的那根。
+    df["volume_ma"] = df["volume"].rolling(window=config.VOLUME_MA_PERIOD).mean()
+    df["volume_ratio"] = df["volume"] / df["volume_ma"].replace(0, pd.NA)
+
     return df

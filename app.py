@@ -92,7 +92,7 @@ if st.session_state["fetched"]:
                 errors[symbol] = str(result)
                 continue
             df = indicators.add_indicators(result)
-            evaluations[symbol] = signals.evaluate(df)
+            evaluations[symbol] = signals.evaluate(df, symbol)
             indicator_dfs[symbol] = df
 
     if errors:
@@ -142,8 +142,11 @@ if st.session_state["fetched"]:
                 )
                 for reason in ev["reasons"]:
                     st.write(f"- {reason}")
-                st.write(
+                detail = (
                     f"現價 {ev['price']:.4f} ｜ RSI {ev['rsi']:.1f} ｜ "
                     f"MACD {ev['macd']:.4f} / 訊號線 {ev['macd_signal']:.4f} ｜ "
                     f"EMA{config.EMA_FAST} {ev['ema_fast']:.4f} / EMA{config.EMA_SLOW} {ev['ema_slow']:.4f}"
                 )
+                if ev["volume_ratio"] is not None:
+                    detail += f" ｜ 量能 {ev['volume_ratio']:.2f} 倍均量"
+                st.write(detail)

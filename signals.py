@@ -17,8 +17,12 @@ def _label_for_score(score: int) -> str:
     return "強烈做空"
 
 
-def evaluate(df: pd.DataFrame) -> dict:
-    """對指標 DataFrame 的最新一根 K 線計算多空分數,回傳分數、標籤與觸發理由。"""
+def evaluate(df: pd.DataFrame, symbol: str | None = None) -> dict:
+    """對指標 DataFrame 的最新一根 K 線計算多空分數,回傳分數、標籤與觸發理由。
+
+    傳入 symbol 且該標的列在 config.VOLUME_CONFIRM_SYMBOLS 時,
+    會額外用量能確認強化或削弱價格訊號。
+    """
     latest = df.iloc[-1]
     prev = df.iloc[-2]
 
@@ -63,6 +67,26 @@ def evaluate(df: pd.DataFrame) -> dict:
         score -= 1
         reasons.append("價格觸及/高於布林通道上軌")
 
+    # 量能確認:量能沒有方向性,所以不獨立給分,而是調整既有價格訊號的強度。
+    # 取最後一根「已收盤」K 棒(iloc[-2]):最新那根還在累積成交量,
+    # 拿它跟完整 K 棒的均量相比會系統性地誤判為縮量。
+    volume_ratio = None
+    if symbol in config.VOLUME_CONFIRM_SYMBOLS and score != 0:
+        ratio = df["volume_ratio"].iloc[-2]
+        if pd.notna(ratio):
+            volume_ratio = float(ratio)
+            direction = 1 if score > 0 else -1
+            if volume_ratio >= config.VOLUME_SURGE_RATIO:
+                score += direction
+                reasons.append(
+                    f"成交量為均量的 {volume_ratio:.2f} 倍(放量),量價配合,訊號加強"
+                )
+            elif volume_ratio <= config.VOLUME_DRY_RATIO:
+                score -= direction
+                reasons.append(
+                    f"成交量僅均量的 {volume_ratio:.2f} 倍(縮量),推力不足,訊號減弱"
+                )
+
     if not reasons:
         reasons.append("目前沒有任何指標觸發訊號條件")
 
@@ -76,4 +100,5 @@ def evaluate(df: pd.DataFrame) -> dict:
         "macd_signal": latest["macd_signal"],
         "ema_fast": latest["ema_fast"],
         "ema_slow": latest["ema_slow"],
+        "volume_ratio": volume_ratio,
     }
