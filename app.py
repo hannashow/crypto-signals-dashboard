@@ -147,23 +147,28 @@ if st.session_state["fetched"]:
             st.error(f"{symbol} 抓取失敗:{msg}")
 
     if evaluations:
-        # 指標卡:現價與相對前一根 K 棒的漲跌幅
+        # 指標卡顯示即時價;漲跌幅為相對訊號所依據的已收盤 K 棒
         st.subheader("即時報價")
         items = list(evaluations.items())
         for row_start in range(0, len(items), 3):
             cols = st.columns(3)
             for col, (symbol, ev) in zip(cols, items[row_start:row_start + 3]):
-                closes = indicator_dfs[symbol]["close"]
-                change = (closes.iloc[-1] / closes.iloc[-2] - 1) * 100
-                dp = price_decimals(ev["price"])
+                change = (ev["live_price"] / ev["price"] - 1) * 100
+                dp = price_decimals(ev["live_price"])
                 emoji, _ = SIGNAL_STYLE[ev["label"]]
                 col.metric(
                     label=f"{emoji} {symbol}",
-                    value=f"{ev['price']:,.{dp}f}",
+                    value=f"{ev['live_price']:,.{dp}f}",
                     delta=f"{change:+.2f}%",
                 )
 
+        # 所有標的取自同一時框,K 棒時間一致,取任一筆標示即可
+        candle_time = next(iter(evaluations.values()))["candle_time"]
         st.subheader("訊號總覽")
+        st.caption(
+            f"訊號依據 {candle_time:%m-%d %H:%M} 起算的已收盤 K 棒(UTC)。"
+            f"未收盤的 K 棒價格仍在變動,不納入判斷,因此訊號在該根 K 棒期間維持不變。"
+        )
         rows = []
         for symbol, ev in evaluations.items():
             ema_trend = (
@@ -225,7 +230,11 @@ if st.session_state["fetched"]:
 
                 dp = price_decimals(ev["price"])
                 cols = st.columns(4)
-                cols[0].metric("現價", f"{ev['price']:,.{dp}f}")
+                cols[0].metric(
+                    "收盤價",
+                    f"{ev['price']:,.{dp}f}",
+                    help="訊號所依據的已收盤 K 棒收盤價,非即時價格。",
+                )
                 cols[1].metric("RSI", f"{ev['rsi']:.1f}")
                 cols[2].metric(
                     f"EMA{config.EMA_FAST} / EMA{config.EMA_SLOW}",

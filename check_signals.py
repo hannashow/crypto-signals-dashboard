@@ -38,10 +38,13 @@ def build_message(alerts: list[tuple[str, dict]]) -> str:
     for symbol, ev in alerts:
         arrow = "🟢" if ev["score"] > 0 else "🔴"
         lines.append(f"{arrow} {symbol} — {ev['label']}(分數 {ev['score']})")
-        lines.append(f"　現價 {ev['price']:.4f}｜RSI {ev['rsi']:.1f}")
+        lines.append(f"　收盤 {ev['price']:.4f}｜RSI {ev['rsi']:.1f}")
         for reason in ev["reasons"]:
             lines.append(f"　· {reason}")
         lines.append("")
+    # 標明訊號基準,避免收到通知後看到即時價不同而困惑
+    candle_time = alerts[0][1]["candle_time"]
+    lines.append(f"依據 {candle_time:%m-%d %H:%M} UTC 收盤 K 棒")
     lines.append("僅供參考,非投資建議")
     return "\n".join(lines)
 

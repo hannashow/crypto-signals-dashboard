@@ -18,13 +18,18 @@ def _label_for_score(score: int) -> str:
 
 
 def evaluate(df: pd.DataFrame, symbol: str | None = None) -> dict:
-    """對指標 DataFrame 的最新一根 K 線計算多空分數,回傳分數、標籤與觸發理由。
+    """依最後一根「已收盤」K 棒計算多空分數,回傳分數、標籤與觸發理由。
 
     傳入 symbol 且該標的列在 config.VOLUME_CONFIRM_SYMBOLS 時,
     會額外用量能確認強化或削弱價格訊號。
+
+    刻意不使用最新一根 K 棒(df.iloc[-1]),因為它尚未收盤 ——
+    其「收盤價」其實是即時價格,會隨每一筆成交跳動。價格落在均線附近時,
+    分數會在同一根 K 棒內反覆翻轉,導致通知內容與稍後查看儀表板時不一致。
+    改用已收盤 K 棒後,訊號在該根 K 棒期間保持穩定,也與量能規則的基準一致。
     """
-    latest = df.iloc[-1]
-    prev = df.iloc[-2]
+    latest = df.iloc[-2]   # 最後一根已收盤 K 棒
+    prev = df.iloc[-3]     # 再前一根,供 MACD 判斷是否發生穿越
 
     score = 0
     reasons = []
@@ -68,11 +73,11 @@ def evaluate(df: pd.DataFrame, symbol: str | None = None) -> dict:
         reasons.append("價格觸及/高於布林通道上軌")
 
     # 量能確認:量能沒有方向性,所以不獨立給分,而是調整既有價格訊號的強度。
-    # 取最後一根「已收盤」K 棒(iloc[-2]):最新那根還在累積成交量,
+    # 與價格規則同樣取最後一根已收盤 K 棒 —— 未收盤那根的成交量只累積了一部分,
     # 拿它跟完整 K 棒的均量相比會系統性地誤判為縮量。
     volume_ratio = None
     if symbol in config.VOLUME_CONFIRM_SYMBOLS and score != 0:
-        ratio = df["volume_ratio"].iloc[-2]
+        ratio = latest["volume_ratio"]
         if pd.notna(ratio):
             volume_ratio = float(ratio)
             direction = 1 if score > 0 else -1
@@ -94,7 +99,11 @@ def evaluate(df: pd.DataFrame, symbol: str | None = None) -> dict:
         "score": score,
         "label": _label_for_score(score),
         "reasons": reasons,
+        # price 為訊號所依據的已收盤 K 棒收盤價;live_price 為當前形成中 K 棒的
+        # 即時價格。兩者會有落差,顯示時需清楚區分以免誤解訊號的時間基準。
         "price": latest["close"],
+        "live_price": df["close"].iloc[-1],
+        "candle_time": latest["timestamp"],
         "rsi": latest["rsi"],
         "macd": latest["macd"],
         "macd_signal": latest["macd_signal"],
