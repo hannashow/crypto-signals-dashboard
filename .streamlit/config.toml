@@ -1,0 +1,19 @@
+[theme]
+base = "light"
+
+# 強調色用於按鈕、焦點外框等互動元件
+primaryColor = "#2563eb"
+
+backgroundColor = "#f8fafc"
+# 卡片、表格標題等次要區塊的底色,與主背景拉出層次
+secondaryBackgroundColor = "#ffffff"
+textColor = "#0f172a"
+
+# 多空語意色。訊號標示與圖表漲跌都沿用這組,確保全站一致
+greenColor = "#16a34a"
+redColor = "#dc2626"
+
+linkColor = "#2563eb"
+
+headingFontWeights = [700, 700, 600]
+baseFontSize = 15

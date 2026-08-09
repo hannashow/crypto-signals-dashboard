@@ -164,6 +164,10 @@ MACD 是唯一需要比較前後兩根 K 棒的規則(判斷是否發生穿越),
 | `VOLUME_CONFIRM_SYMBOLS` | BTC、ETH | 套用量能確認的標的 |
 | `ALERT_MIN_SCORE` | 2 | 通知門檻,調高則通知變少 |
 
+## 外觀
+
+佈景設定在 [.streamlit/config.toml](.streamlit/config.toml),採淺色底搭配藍色強調色。多空語意色(綠 `#16a34a` / 紅 `#dc2626`)同時用於訊號標示與 K 線圖漲跌,`app.py` 上方的顏色常數與此檔對應,調整配色時兩處需一併修改。
+
 ---
 
 ## 本機執行

@@ -11,12 +11,48 @@ import signals
 
 CHART_BARS = 100  # K 線圖顯示的最近根數,避免太密集
 
+# 配色與 .streamlit/config.toml 的佈景一致,確保圖表與頁面不會互相打架
+COLOR_UP = "#16a34a"
+COLOR_DOWN = "#dc2626"
+COLOR_EMA_FAST = "#2563eb"
+COLOR_EMA_SLOW = "#f59e0b"
+COLOR_BAND = "#94a3b8"
+COLOR_GRID = "#e2e8f0"
+
+# 每個訊號標籤對應的圖示與底色(底色用於總覽表格)
+SIGNAL_STYLE = {
+    "強烈做多": ("🟢🟢", "#dcfce7"),
+    "偏多": ("🟢", "#f0fdf4"),
+    "中性": ("⚪", "#f8fafc"),
+    "偏空": ("🔴", "#fef2f2"),
+    "強烈做空": ("🔴🔴", "#fee2e2"),
+}
+
 
 def make_candlestick_chart(df: pd.DataFrame, symbol: str) -> go.Figure:
     """畫出蠟燭圖,疊加 EMA 快慢線與布林通道。"""
     chart_df = df.tail(CHART_BARS)
 
     fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=chart_df["timestamp"],
+            y=chart_df["bb_upper"],
+            name="布林上軌",
+            line=dict(width=1, dash="dot", color=COLOR_BAND),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=chart_df["timestamp"],
+            y=chart_df["bb_lower"],
+            name="布林下軌",
+            line=dict(width=1, dash="dot", color=COLOR_BAND),
+            # 與上軌之間填色,讓通道範圍一眼可辨
+            fill="tonexty",
+            fillcolor="rgba(148, 163, 184, 0.10)",
+        )
+    )
     fig.add_trace(
         go.Candlestick(
             x=chart_df["timestamp"],
@@ -25,6 +61,11 @@ def make_candlestick_chart(df: pd.DataFrame, symbol: str) -> go.Figure:
             low=chart_df["low"],
             close=chart_df["close"],
             name=symbol,
+            increasing_line_color=COLOR_UP,
+            increasing_fillcolor=COLOR_UP,
+            decreasing_line_color=COLOR_DOWN,
+            decreasing_fillcolor=COLOR_DOWN,
+            line=dict(width=1),
         )
     )
     fig.add_trace(
@@ -32,7 +73,7 @@ def make_candlestick_chart(df: pd.DataFrame, symbol: str) -> go.Figure:
             x=chart_df["timestamp"],
             y=chart_df["ema_fast"],
             name=f"EMA{config.EMA_FAST}",
-            line=dict(width=1),
+            line=dict(width=1.6, color=COLOR_EMA_FAST),
         )
     )
     fig.add_trace(
@@ -40,33 +81,39 @@ def make_candlestick_chart(df: pd.DataFrame, symbol: str) -> go.Figure:
             x=chart_df["timestamp"],
             y=chart_df["ema_slow"],
             name=f"EMA{config.EMA_SLOW}",
-            line=dict(width=1),
+            line=dict(width=1.6, color=COLOR_EMA_SLOW),
         )
     )
-    fig.add_trace(
-        go.Scatter(
-            x=chart_df["timestamp"],
-            y=chart_df["bb_upper"],
-            name="布林上軌",
-            line=dict(width=1, dash="dot"),
-        )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=chart_df["timestamp"],
-            y=chart_df["bb_lower"],
-            name="布林下軌",
-            line=dict(width=1, dash="dot"),
-        )
-    )
+
     fig.update_layout(
-        title=f"{symbol} K線圖({config.TIMEFRAME},近 {CHART_BARS} 根)",
+        height=430,
+        margin=dict(l=8, r=8, t=30, b=8),
         xaxis_rangeslider_visible=False,
-        height=420,
-        margin=dict(l=10, r=10, t=40, b=10),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        plot_bgcolor="white",
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#334155", size=12),
+        hovermode="x unified",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.0,
+            xanchor="right",
+            x=1,
+            bgcolor="rgba(0,0,0,0)",
+        ),
     )
+    fig.update_xaxes(showgrid=True, gridcolor=COLOR_GRID, linecolor=COLOR_GRID)
+    fig.update_yaxes(showgrid=True, gridcolor=COLOR_GRID, linecolor=COLOR_GRID)
     return fig
+
+
+def price_decimals(price: float) -> int:
+    """依價格大小決定顯示小數位,避免高價標的補一堆無意義的零。"""
+    if price >= 100:
+        return 2
+    if price >= 1:
+        return 3
+    return 5
 
 
 st.set_page_config(page_title="Market Signal Radar", layout="wide")
@@ -100,14 +147,23 @@ if st.session_state["fetched"]:
             st.error(f"{symbol} 抓取失敗:{msg}")
 
     if evaluations:
-        emoji_map = {
-            "強烈做多": "🟢🟢",
-            "偏多": "🟢",
-            "中性": "⚪",
-            "偏空": "🔴",
-            "強烈做空": "🔴🔴",
-        }
+        # 指標卡:現價與相對前一根 K 棒的漲跌幅
+        st.subheader("即時報價")
+        items = list(evaluations.items())
+        for row_start in range(0, len(items), 3):
+            cols = st.columns(3)
+            for col, (symbol, ev) in zip(cols, items[row_start:row_start + 3]):
+                closes = indicator_dfs[symbol]["close"]
+                change = (closes.iloc[-1] / closes.iloc[-2] - 1) * 100
+                dp = price_decimals(ev["price"])
+                emoji, _ = SIGNAL_STYLE[ev["label"]]
+                col.metric(
+                    label=f"{emoji} {symbol}",
+                    value=f"{ev['price']:,.{dp}f}",
+                    delta=f"{change:+.2f}%",
+                )
 
+        st.subheader("訊號總覽")
         rows = []
         for symbol, ev in evaluations.items():
             ema_trend = (
@@ -118,35 +174,70 @@ if st.session_state["fetched"]:
                 else "持平"
             )
             macd_trend = "MACD > 訊號線" if ev["macd"] > ev["macd_signal"] else "MACD < 訊號線"
+            emoji, _ = SIGNAL_STYLE[ev["label"]]
             rows.append(
                 {
-                    "幣種": symbol,
-                    "現價": round(ev["price"], 4),
-                    "RSI(14)": round(ev["rsi"], 1),
+                    "標的": symbol,
+                    "現價": round(ev["price"], price_decimals(ev["price"])),
+                    "RSI": round(ev["rsi"], 1),
                     "MACD狀態": macd_trend,
                     "均線排列": ema_trend,
-                    "訊號": f"{emoji_map[ev['label']]} {ev['label']}",
+                    "量能": (
+                        f"{ev['volume_ratio']:.2f}x"
+                        if ev["volume_ratio"] is not None
+                        else "—"
+                    ),
+                    "訊號": f"{emoji} {ev['label']}",
                     "分數": ev["score"],
                 }
             )
 
-        overview_df = pd.DataFrame(rows).set_index("幣種")
-        st.dataframe(overview_df, use_container_width=True)
+        overview_df = pd.DataFrame(rows).set_index("標的")
+
+        def shade_signal(value: str) -> str:
+            for label, (_, bg) in SIGNAL_STYLE.items():
+                if value.endswith(label):
+                    return f"background-color: {bg}"
+            return ""
+
+        def shade_score(value: int) -> str:
+            if value > 0:
+                return f"color: {COLOR_UP}; font-weight: 600"
+            if value < 0:
+                return f"color: {COLOR_DOWN}; font-weight: 600"
+            return "color: #64748b"
+
+        styled = (
+            overview_df.style
+            .map(shade_signal, subset=["訊號"])
+            .map(shade_score, subset=["分數"])
+        )
+        st.dataframe(styled, use_container_width=True)
 
         st.subheader("詳細判斷理由")
         for symbol, ev in evaluations.items():
-            with st.expander(f"{symbol} — {emoji_map[ev['label']]} {ev['label']}(分數 {ev['score']})"):
+            emoji, _ = SIGNAL_STYLE[ev["label"]]
+            with st.expander(f"{emoji} {symbol} — {ev['label']}(分數 {ev['score']})"):
                 st.plotly_chart(
                     make_candlestick_chart(indicator_dfs[symbol], symbol),
                     use_container_width=True,
                 )
-                for reason in ev["reasons"]:
-                    st.write(f"- {reason}")
-                detail = (
-                    f"現價 {ev['price']:.4f} ｜ RSI {ev['rsi']:.1f} ｜ "
-                    f"MACD {ev['macd']:.4f} / 訊號線 {ev['macd_signal']:.4f} ｜ "
-                    f"EMA{config.EMA_FAST} {ev['ema_fast']:.4f} / EMA{config.EMA_SLOW} {ev['ema_slow']:.4f}"
+
+                dp = price_decimals(ev["price"])
+                cols = st.columns(4)
+                cols[0].metric("現價", f"{ev['price']:,.{dp}f}")
+                cols[1].metric("RSI", f"{ev['rsi']:.1f}")
+                cols[2].metric(
+                    f"EMA{config.EMA_FAST} / EMA{config.EMA_SLOW}",
+                    f"{ev['ema_fast']:,.{dp}f}",
+                    delta=f"{ev['ema_fast'] - ev['ema_slow']:+,.{dp}f}",
                 )
-                if ev["volume_ratio"] is not None:
-                    detail += f" ｜ 量能 {ev['volume_ratio']:.2f} 倍均量"
-                st.write(detail)
+                cols[3].metric(
+                    "量能",
+                    f"{ev['volume_ratio']:.2f}x" if ev["volume_ratio"] is not None else "—",
+                    help="相對過去 20 根 K 棒均量。僅加密貨幣標的套用量能確認。",
+                )
+
+                st.markdown("**觸發條件**")
+                for reason in ev["reasons"]:
+                    st.markdown(f"- {reason}")
