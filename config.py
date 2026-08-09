@@ -3,13 +3,33 @@
 # 使用 OKX:Binance(451)與 Bybit(403)會封鎖雲端主機 IP,
 # OKX 實測可從 GitHub Actions / Streamlit Cloud 存取,且有股票永續合約。
 # symbol 格式為 ccxt 慣例,":USDT" 後綴代表永續合約(perpetual swap)。
+#
+# SYMBOLS 是儀表板顯示的完整清單;ALERT_SYMBOLS 是其中會發 LINE 通知的子集。
+# 兩者分開是因為 LINE 免費額度每月僅 200 則,標的越多通知越多,
+# 全部都通知會超量。不通知的標的仍可隨時打開儀表板查看。
 SYMBOLS = [
-    "BTC/USDT",        # 比特幣(現貨)
-    "ETH/USDT",        # 以太幣(現貨)
-    "MU/USDT:USDT",    # 美光科技 永續合約
-    "QQQ/USDT:USDT",   # 納斯達克100 ETF 永續合約
-    "MRVL/USDT:USDT",  # Marvell 永續合約
-    "DRAM/USDT:USDT",  # DRAM 記憶體指數 永續合約
+    "BTC/USDT",         # 比特幣(現貨)
+    "ETH/USDT",         # 以太幣(現貨)
+    "MU/USDT:USDT",     # 美光科技
+    "QQQ/USDT:USDT",    # 納斯達克100 ETF
+    "MRVL/USDT:USDT",   # Marvell
+    "DRAM/USDT:USDT",   # DRAM 記憶體指數
+    "NVDA/USDT:USDT",   # NVIDIA
+    "TSLA/USDT:USDT",   # Tesla
+    "AAPL/USDT:USDT",   # Apple
+    "GOOGL/USDT:USDT",  # Alphabet A 股(OKX 無 GOOG,GOOGL 為有投票權的股別)
+    "COIN/USDT:USDT",   # Coinbase
+    "SPCX/USDT:USDT",   # OKX 上架的 SPCX 合約
+]
+
+# 會發送 LINE 通知的標的。其餘標的只在儀表板顯示。
+ALERT_SYMBOLS = [
+    "BTC/USDT",
+    "ETH/USDT",
+    "MU/USDT:USDT",
+    "QQQ/USDT:USDT",
+    "MRVL/USDT:USDT",
+    "DRAM/USDT:USDT",
 ]
 
 # K 線時框(1 小時)

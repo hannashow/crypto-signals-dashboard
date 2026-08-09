@@ -55,7 +55,8 @@ def main() -> None:
     new_state: dict[str, str] = {}
     alerts: list[tuple[str, dict]] = []
 
-    results = data_fetcher.fetch_all(config.SYMBOLS)
+    # 只檢查會通知的標的,其餘標的僅在儀表板顯示,不必在此耗用 API 呼叫
+    results = data_fetcher.fetch_all(config.ALERT_SYMBOLS)
     for symbol, result in results.items():
         if isinstance(result, Exception):
             print(f"{symbol} 抓取失敗:{result}")

@@ -197,6 +197,7 @@ if evaluations:
     st.caption(
         f"訊號依據 {candle_time:%m-%d %H:%M} 起算的已收盤 K 棒(台灣時間)。"
         f"未收盤的 K 棒價格仍在變動,不納入判斷,因此訊號在該根 K 棒期間維持不變。"
+        f"　🔔 標記者會發送 LINE 通知,其餘僅在此顯示。"
     )
     rows = []
     for symbol, ev in evaluations.items():
@@ -226,6 +227,7 @@ if evaluations:
                     if ev["near_zone"]
                     else "—"
                 ),
+                "通知": "🔔" if symbol in config.ALERT_SYMBOLS else "",
                 "訊號": f"{emoji} {ev['label']}",
                 "分數": ev["score"],
             }

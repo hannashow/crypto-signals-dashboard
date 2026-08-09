@@ -30,10 +30,15 @@ cron-job.org(台灣時間 8:37 ~ 23:37,每小時)
 
 資料來源為 OKX 公開 API,1 小時 K 線。標的清單定義在 [config.py](config.py) 的 `SYMBOLS`。
 
-| 標的 | 類型 |
-|---|---|
-| BTC/USDT、ETH/USDT | 加密貨幣現貨,24 小時連續交易 |
-| MU、QQQ、MRVL、DRAM | 股票永續合約,追蹤美股但合約 24 小時交易 |
+| 標的 | 類型 | LINE 通知 |
+|---|---|---|
+| BTC/USDT、ETH/USDT | 加密貨幣現貨,24 小時連續交易 | ✅ |
+| MU、QQQ、MRVL、DRAM | 股票永續合約,追蹤美股但合約 24 小時交易 | ✅ |
+| NVDA、TSLA、AAPL、GOOGL、COIN、SPCX | 股票永續合約 | ❌ 僅儀表板 |
+
+`SYMBOLS` 是儀表板顯示的完整清單,`ALERT_SYMBOLS` 是其中會發 LINE 通知的子集。兩者分開是因為 LINE 免費額度每月僅 200 則 —— 標的越多通知越多,12 個標的全部通知估計每月約 400 則,會超量一倍。不通知的標的仍可隨時開儀表板查看,總覽表以 🔔 標示哪些會通知。
+
+OKX 沒有 GOOG 與 GRMN 的合約。GOOGL 與 GOOG 是 Alphabet 的不同股別(GOOGL 有投票權),股價貼近,故以 GOOGL 替代。
 
 ---
 
@@ -179,7 +184,8 @@ MACD 是唯一需要比較前後兩根 K 棒的規則(判斷是否發生穿越),
 
 | 參數 | 目前值 | 說明 |
 |---|---|---|
-| `SYMBOLS` | 6 個標的 | 追蹤清單 |
+| `SYMBOLS` | 12 個標的 | 儀表板顯示的完整清單 |
+| `ALERT_SYMBOLS` | 6 個標的 | 其中會發 LINE 通知的子集 |
 | `TIMEFRAME` | `1h` | K 線時框 |
 | `DISPLAY_TIMEZONE` | `Asia/Taipei` | 顯示時區。交易所回傳 UTC,抓取後即轉換,故 K 線圖橫軸與所有時間標示皆為此時區 |
 | `OHLCV_LIMIT` | 200 | 每次抓取的 K 棒數,需足夠 EMA50 等指標暖機 |
