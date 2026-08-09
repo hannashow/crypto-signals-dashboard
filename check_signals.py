@@ -71,9 +71,8 @@ def main() -> None:
         # 未達門檻的幣種不寫入 new_state,等於清除記錄,
         # 之後若再次觸發同樣訊號仍會通知
 
-    save_state(new_state)
-
     if not alerts:
+        save_state(new_state)
         print("沒有新的訊號變化,不發送通知")
         return
 
@@ -82,10 +81,14 @@ def main() -> None:
     print(message)
 
     if os.environ.get("DRY_RUN") == "1":
-        print("(DRY_RUN 模式,略過實際發送)")
+        print("(DRY_RUN 模式,略過實際發送,不寫入狀態)")
         return
 
+    # 必須先送出成功才寫入狀態。若順序顛倒,發送失敗時(LINE 額度用罄、
+    # 憑證過期、網路中斷)訊號已被記為「已通知」,下次執行會因為狀態沒變
+    # 而跳過,該則通知就永遠遺失了。
     notifier.send_line_message(message)
+    save_state(new_state)
     print("LINE 通知已發送")
 
 
