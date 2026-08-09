@@ -3,6 +3,8 @@
 import pandas as pd
 
 import config
+import formatting
+import levels
 
 
 def _label_for_score(score: int) -> str:
@@ -17,7 +19,11 @@ def _label_for_score(score: int) -> str:
     return "強烈做空"
 
 
-def evaluate(df: pd.DataFrame, symbol: str | None = None) -> dict:
+def evaluate(
+    df: pd.DataFrame,
+    symbol: str | None = None,
+    zones: list | None = None,
+) -> dict:
     """依最後一根「已收盤」K 棒計算多空分數,回傳分數、標籤與觸發理由。
 
     傳入 symbol 且該標的列在 config.VOLUME_CONFIRM_SYMBOLS 時,
@@ -72,6 +78,27 @@ def evaluate(df: pd.DataFrame, symbol: str | None = None) -> dict:
         score -= 1
         reasons.append("價格觸及/高於布林通道上軌")
 
+    # 壓力支撐:價格接近日線級別的支撐區偏多(有機會獲得支撐),接近壓力區偏空。
+    # 只採計最接近的一個區,避免多個區間重複給分。
+    near_zone_info = None
+    if zones:
+        zone = levels.nearest_zone(zones, latest["close"])
+        if zone is not None:
+            kind = zone.kind(latest["close"])
+            near_zone_info = {
+                "kind": kind,
+                "low": zone.low,
+                "high": zone.high,
+                "touches": zone.touches,
+            }
+            band = f"{formatting.format_price(zone.low)}~{formatting.format_price(zone.high)}"
+            if kind == "支撐":
+                score += 1
+                reasons.append(f"接近日線支撐區 {band}(歷史測試 {zone.touches} 次)")
+            else:
+                score -= 1
+                reasons.append(f"接近日線壓力區 {band}(歷史測試 {zone.touches} 次)")
+
     # 量能確認:量能沒有方向性,所以不獨立給分,而是調整既有價格訊號的強度。
     # 與價格規則同樣取最後一根已收盤 K 棒 —— 未收盤那根的成交量只累積了一部分,
     # 拿它跟完整 K 棒的均量相比會系統性地誤判為縮量。
@@ -110,4 +137,5 @@ def evaluate(df: pd.DataFrame, symbol: str | None = None) -> dict:
         "ema_fast": latest["ema_fast"],
         "ema_slow": latest["ema_slow"],
         "volume_ratio": volume_ratio,
+        "near_zone": near_zone_info,
     }

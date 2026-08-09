@@ -32,14 +32,20 @@ def to_bar(timeframe: str) -> str:
     return timeframe if unit == "m" else timeframe[:-1] + unit.upper()
 
 
-def fetch_ohlcv(symbol: str) -> pd.DataFrame:
-    """抓取單一標的的 OHLCV 資料,回傳 DataFrame。失敗時拋出例外由呼叫端處理。"""
+def fetch_ohlcv(
+    symbol: str, timeframe: str | None = None, limit: int | None = None
+) -> pd.DataFrame:
+    """抓取單一標的的 OHLCV 資料,回傳 DataFrame。失敗時拋出例外由呼叫端處理。
+
+    timeframe 與 limit 省略時採用 config 的預設值(訊號用的時框)。
+    壓力支撐需要另一個較高的時框,故開放覆寫。
+    """
     response = requests.get(
         CANDLES_ENDPOINT,
         params={
             "instId": to_inst_id(symbol),
-            "bar": to_bar(config.TIMEFRAME),
-            "limit": config.OHLCV_LIMIT,
+            "bar": to_bar(timeframe or config.TIMEFRAME),
+            "limit": limit or config.OHLCV_LIMIT,
         },
         timeout=15,
     )

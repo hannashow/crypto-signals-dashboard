@@ -12,6 +12,7 @@ from pathlib import Path
 import config
 import data_fetcher
 import indicators
+import levels
 import notifier
 import signals
 
@@ -64,7 +65,8 @@ def main() -> None:
             continue
 
         df = indicators.add_indicators(result)
-        ev = signals.evaluate(df, symbol)
+        zones = levels.fetch_zones(symbol, df["close"].iloc[-2])
+        ev = signals.evaluate(df, symbol, zones)
         print(f"{symbol} {ev['label']}(分數 {ev['score']})")
 
         if abs(ev["score"]) >= config.ALERT_MIN_SCORE:
