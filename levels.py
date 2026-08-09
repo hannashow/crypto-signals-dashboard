@@ -92,6 +92,7 @@ def find_zones(df: pd.DataFrame, price: float) -> list[Zone]:
     ]
 
     # 離現價太遠的區間短期內碰不到,參考價值低,只留最近的幾個
+    zones = [z for z in zones if z.distance_pct(price) <= config.SR_MAX_DISTANCE_PCT]
     zones.sort(key=lambda z: z.distance_pct(price))
     return zones[: config.SR_MAX_ZONES]
 
@@ -111,6 +112,21 @@ def fetch_zones(symbol: str, price: float) -> list[Zone]:
     except Exception:
         return []
     return find_zones(df, price)
+
+
+def nearest_pair(
+    zones: list[Zone], price: float
+) -> tuple[Zone | None, Zone | None]:
+    """回傳(下方最近的支撐, 上方最近的壓力)。
+
+    離現價過遠的區間短期內碰不到,畫在圖上只會干擾判讀,
+    因此顯示時只取上下各一個 —— 也就是「往上會先撞到哪裡、往下先由誰接著」。
+    """
+    below = [z for z in zones if z.center <= price]
+    above = [z for z in zones if z.center > price]
+    support = max(below, key=lambda z: z.center) if below else None
+    resistance = min(above, key=lambda z: z.center) if above else None
+    return support, resistance
 
 
 def nearest_zone(zones: list[Zone], price: float) -> Zone | None:

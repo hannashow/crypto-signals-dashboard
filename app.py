@@ -39,10 +39,12 @@ def make_candlestick_chart(
 
     fig = go.Figure()
 
-    # 壓力支撐區畫成整幅橫帶,先畫才會落在 K 棒下層不擋住價格
+    # 壓力支撐區畫成整幅橫帶,先畫才會落在 K 棒下層不擋住價格。
+    # 只畫上下最近各一個:離現價過遠的區間短期內碰不到,畫出來只是干擾。
     if zones:
         price = float(df["close"].iloc[-2])
-        for zone in zones:
+        support, resistance = levels.nearest_pair(zones, price)
+        for zone in [z for z in (support, resistance) if z is not None]:
             is_support = zone.center <= price
             fig.add_hrect(
                 y0=zone.low,
