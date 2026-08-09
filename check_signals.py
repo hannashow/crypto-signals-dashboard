@@ -34,7 +34,7 @@ def save_state(state: dict[str, str]) -> None:
 
 
 def build_message(alerts: list[tuple[str, dict]]) -> str:
-    lines = [f"📊 加密貨幣訊號提醒({config.TIMEFRAME})", ""]
+    lines = [f"📊 Market Signal Radar({config.TIMEFRAME})", ""]
     for symbol, ev in alerts:
         arrow = "🟢" if ev["score"] > 0 else "🔴"
         lines.append(f"{arrow} {symbol} — {ev['label']}(分數 {ev['score']})")

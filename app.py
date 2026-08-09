@@ -1,4 +1,4 @@
-"""加密貨幣多空訊號儀表板(Streamlit)。"""
+"""Market Signal Radar — 多空訊號儀表板(Streamlit)。"""
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -69,9 +69,9 @@ def make_candlestick_chart(df: pd.DataFrame, symbol: str) -> go.Figure:
     return fig
 
 
-st.set_page_config(page_title="加密貨幣多空訊號儀表板", layout="wide")
+st.set_page_config(page_title="Market Signal Radar", layout="wide")
 
-st.title("加密貨幣多空訊號儀表板")
+st.title("Market Signal Radar")
 st.caption(f"資料來源:OKX 公開 API｜時框:{config.TIMEFRAME}｜僅供參考,非投資建議")
 
 if st.button("🔄 重新整理"):

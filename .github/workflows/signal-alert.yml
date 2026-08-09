@@ -1,4 +1,4 @@
-name: 加密貨幣訊號提醒
+name: Market Signal Radar 訊號提醒
 
 on:
   schedule:
