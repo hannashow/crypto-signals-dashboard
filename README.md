@@ -9,9 +9,20 @@
 | 元件 | 說明 |
 |---|---|
 | Streamlit 儀表板 | 隨時打開檢視所有標的的訊號、指標數值與 K 線圖 |
-| LINE 通知 | GitHub Actions 定時執行 `check_signals.py`,訊號變化時推播 |
+| LINE 通知 | 定時執行 `check_signals.py`,訊號變化時推播 |
 
 兩者共用同一套計分邏輯([signals.py](signals.py)),但獨立運作 —— 儀表板掛掉不影響通知。
+
+通知的觸發鏈為:
+
+```
+cron-job.org(台灣時間 8:37 ~ 23:37,每小時)
+  → 呼叫 GitHub API 的 workflow_dispatch 端點
+  → GitHub Actions 執行 check_signals.py
+  → 符合條件則透過 LINE Messaging API 推播
+```
+
+夜間(台灣 00:00–08:00)不執行,避免睡眠時被打擾。
 
 ## 追蹤標的
 
@@ -97,9 +108,17 @@ MACD 是唯一需要比較前後兩根 K 棒的規則(判斷是否發生穿越),
 
 第二個條件是去重機制。訊號在同一根 K 棒內不會變,沒有去重的話同一個訊號會被重複推播,也會快速消耗 LINE 每月 200 則的免費額度。
 
+### 狀態保存
+
+狀態記錄在 `.alert_state.json`,由 GitHub Actions 的 cache 跨執行保存。未達門檻的標的會從狀態中移除,因此該訊號日後再次出現時仍會通知。
+
+**狀態只在 LINE 送出成功後才寫入。** 若順序顛倒,發送失敗時(額度用罄、憑證過期、網路中斷)訊號會被記為「已通知」,下次執行因狀態未變而跳過,該則通知就永久遺失。目前的順序可確保發送失敗時下次自動重試。
+
+`DRY_RUN=1` 模式完全不寫入狀態,避免測試污染正式狀態。
+
 ### 時框與門檻的取捨
 
-以 23 天歷史資料回溯模擬各組合的通知量(已計入只在台灣 8–24 點檢查):
+回溯模擬各組合的通知量(已計入只在台灣 8–24 點檢查):
 
 | 時框 | 門檻 | 每月估計通知 | 佔 LINE 免費額度 |
 |---|---|---|---|
@@ -110,13 +129,19 @@ MACD 是唯一需要比較前後兩根 K 棒的規則(判斷是否發生穿越),
 | **1h** | **2** | **117** | **58%**(目前設定) |
 | 1h | 3 | 14 | 7% |
 
+> 模擬取每個標的最近 200 根 K 棒。因此 4h 的觀察窗約 23 天、1h 約 5.8 天 —— 1h 的估計值取樣期間較短,可靠度低於 4h,實際用量仍需觀察。
+
 1 小時時框搭配門檻 1 會超出 LINE 免費額度近三倍,因此改用 1h 時務必同時提高門檻。
 
 選擇 `1h + 門檻2` 的理由:通知量與 `4h + 門檻1` 相近,但意義不同 —— 前者要求兩條規則同時認同,後者只需一條規則在較慢的時框上觸發。要求多條規則共識,過濾雜訊的效果比單純放慢時框更紮實。
 
 **注意:** 門檻 3 幾乎不會觸發。回溯資料中四條規則從未有三條同時指向同方向,因此「強烈做多 / 強烈做空」標籤在實務上極少出現。若希望這兩個標籤有意義,需要重新設計計分方式(例如讓較強的訊號給 2 分而非 1 分)。
 
-狀態記錄在 `.alert_state.json`,由 GitHub Actions 的 cache 跨執行保存。未達門檻的標的會從狀態中移除,因此該訊號日後再次出現時仍會通知。
+### LINE 免費額度
+
+帳號使用「輕用量」方案,每月 200 則免費推播。額度用完後 API 會回傳錯誤、訊息不送達,**不會自動扣款**。
+
+輕用量與中用量方案皆**無法加購訊息**,僅高用量(月費 NT$1,200 未稅、6,000 則)可按則加購。若通知量逼近上限,調高 `ALERT_MIN_SCORE` 遠比升級方案划算(門檻 3 的估計用量僅 14 則/月)。
 
 ## 可調參數
 
@@ -126,6 +151,7 @@ MACD 是唯一需要比較前後兩根 K 棒的規則(判斷是否發生穿越),
 |---|---|---|
 | `SYMBOLS` | 6 個標的 | 追蹤清單 |
 | `TIMEFRAME` | `1h` | K 線時框 |
+| `OHLCV_LIMIT` | 200 | 每次抓取的 K 棒數,需足夠 EMA50 等指標暖機 |
 | `RSI_PERIOD` / `RSI_OVERSOLD` / `RSI_OVERBOUGHT` | 14 / 30 / 70 | RSI 參數與超買超賣門檻 |
 | `EMA_FAST` / `EMA_SLOW` | 20 / 50 | 快慢均線期數 |
 | `MACD_FAST` / `MACD_SLOW` / `MACD_SIGNAL` | 12 / 26 / 9 | MACD 參數 |
@@ -140,16 +166,26 @@ MACD 是唯一需要比較前後兩根 K 棒的規則(判斷是否發生穿越),
 
 ## 本機執行
 
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
-
-單獨測試訊號檢查(`DRY_RUN=1` 只印出結果,不實際發送 LINE):
+安裝依賴並啟動儀表板:
 
 ```bash
-DRY_RUN=1 python check_signals.py
+py -m pip install -r requirements.txt
+py -m streamlit run app.py
 ```
+
+單獨測試訊號檢查。`DRY_RUN=1` 只印出結果,不實際發送 LINE、也不寫入狀態:
+
+PowerShell
+```bash
+$env:DRY_RUN="1"; py check_signals.py
+```
+
+bash / Git Bash
+```bash
+DRY_RUN=1 py check_signals.py
+```
+
+> Windows 上使用 `py`(Python Launcher)而非 `python`。預設的 `python` 可能指向 Microsoft Store 的轉接程式,執行時不會有任何輸出。
 
 ## 部署
 
@@ -162,7 +198,7 @@ LINE 憑證以 GitHub Secrets 提供:`LINE_CHANNEL_ACCESS_TOKEN`、`LINE_USER_ID
 
 ### 已知注意事項
 
-- **GitHub Actions 內建排程不可靠。** 本專案的 cron 從未被觸發過,因此改由 cron-job.org 定時呼叫 GitHub API 的 `workflow_dispatch` 端點。workflow 內的 `schedule` 設定保留作為備援,重複觸發不會造成重複通知(去重機制擋掉)。
+- **GitHub Actions 內建排程不準時,故以 cron-job.org 為主要觸發來源。** 專案剛建立時內建 cron 完全不觸發(超過 11 小時、十餘個時段皆無),因而改由 cron-job.org 定時呼叫 GitHub API 的 `workflow_dispatch` 端點。內建排程後來自行恢復運作,但實測延遲多在 20–30 分鐘(排定 UTC 03:37 的執行落在 04:02、13:37 落在 14:07),符合 GitHub 文件所述「高負載時排程會延遲甚至丟棄」。目前兩個觸發來源並存,重複觸發不會造成重複通知(去重機制擋掉)。
 - **修改 `app.py` 以外的檔案後,Streamlit Cloud 需手動 Reboot。** Streamlit 重跑 `app.py` 時不會重新載入已 import 的模組,新舊程式碼混用會產生 TypeError 之類的錯誤。
 - **Binance 與 Bybit 封鎖雲端主機 IP**(451 / 403),故資料來源使用 OKX。
 - **未使用 ccxt。** ccxt 抓資料前會載入交易所全部市場定義(OKX 逾四千個),記憶體開銷對 Streamlit Cloud 免費方案偏重,改為直接呼叫 OKX REST API。
