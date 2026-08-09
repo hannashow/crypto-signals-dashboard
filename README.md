@@ -157,6 +157,7 @@ MACD 是唯一需要比較前後兩根 K 棒的規則(判斷是否發生穿越),
 |---|---|---|
 | `SYMBOLS` | 6 個標的 | 追蹤清單 |
 | `TIMEFRAME` | `1h` | K 線時框 |
+| `DISPLAY_TIMEZONE` | `Asia/Taipei` | 顯示時區。交易所回傳 UTC,抓取後即轉換,故 K 線圖橫軸與所有時間標示皆為此時區 |
 | `OHLCV_LIMIT` | 200 | 每次抓取的 K 棒數,需足夠 EMA50 等指標暖機 |
 | `RSI_PERIOD` / `RSI_OVERSOLD` / `RSI_OVERBOUGHT` | 14 / 30 / 70 | RSI 參數與超買超賣門檻 |
 | `EMA_FAST` / `EMA_SLOW` | 20 / 50 | 快慢均線期數 |

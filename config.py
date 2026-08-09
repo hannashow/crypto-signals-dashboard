@@ -16,6 +16,10 @@ SYMBOLS = [
 # 與每小時檢查一次的排程對齊,每次檢查剛好有一根新收盤的 K 棒。
 TIMEFRAME = "1h"
 
+# 顯示時區。交易所回傳的時間戳為 UTC,抓取後即轉為此時區,
+# 因此 K 線圖橫軸與所有時間標示都是這個時區的時間。
+DISPLAY_TIMEZONE = "Asia/Taipei"
+
 # 每次抓取的 K 線根數(需足夠計算 EMA50 等指標的暖機期)
 OHLCV_LIMIT = 200
 

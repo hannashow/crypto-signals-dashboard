@@ -166,7 +166,7 @@ if st.session_state["fetched"]:
         candle_time = next(iter(evaluations.values()))["candle_time"]
         st.subheader("訊號總覽")
         st.caption(
-            f"訊號依據 {candle_time:%m-%d %H:%M} 起算的已收盤 K 棒(UTC)。"
+            f"訊號依據 {candle_time:%m-%d %H:%M} 起算的已收盤 K 棒(台灣時間)。"
             f"未收盤的 K 棒價格仍在變動,不納入判斷,因此訊號在該根 K 棒期間維持不變。"
         )
         rows = []

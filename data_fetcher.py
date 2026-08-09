@@ -59,7 +59,12 @@ def fetch_ohlcv(symbol: str) -> pd.DataFrame:
         [row[:6] for row in reversed(rows)],
         columns=["timestamp", "open", "high", "low", "close", "volume"],
     )
-    df["timestamp"] = pd.to_datetime(df["timestamp"].astype("int64"), unit="ms")
+    # OKX 的時間戳為 UTC 毫秒。轉成帶時區的顯示時區,讓 K 線圖橫軸與
+    # 各處標示的時間都是使用者所在時區,不必自行換算。
+    df["timestamp"] = (
+        pd.to_datetime(df["timestamp"].astype("int64"), unit="ms", utc=True)
+        .dt.tz_convert(config.DISPLAY_TIMEZONE)
+    )
     for col in ["open", "high", "low", "close", "volume"]:
         df[col] = df[col].astype(float)
     return df

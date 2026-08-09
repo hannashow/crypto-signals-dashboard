@@ -44,7 +44,7 @@ def build_message(alerts: list[tuple[str, dict]]) -> str:
         lines.append("")
     # 標明訊號基準,避免收到通知後看到即時價不同而困惑
     candle_time = alerts[0][1]["candle_time"]
-    lines.append(f"依據 {candle_time:%m-%d %H:%M} UTC 收盤 K 棒")
+    lines.append(f"依據 {candle_time:%m-%d %H:%M} 收盤 K 棒(台灣時間)")
     lines.append("僅供參考,非投資建議")
     return "\n".join(lines)
 
