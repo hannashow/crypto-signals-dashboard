@@ -78,6 +78,22 @@ def evaluate(
         score -= 1
         reasons.append("價格觸及/高於布林通道上軌")
 
+    # Chandelier Exit:ATR 移動停損所判定的趨勢狀態。
+    # 這是狀態型規則,恆為 ±1(不會是 0),與其他「條件成立才給分」的規則不同。
+    ce_dir = int(latest["ce_direction"])
+    ce_stop = float(latest["ce_stop"]) if pd.notna(latest["ce_stop"]) else None
+    if ce_stop is not None:
+        if ce_dir == 1:
+            score += 1
+            reasons.append(
+                f"Chandelier Exit 處於多方,停損位於 {formatting.format_price(ce_stop)}"
+            )
+        else:
+            score -= 1
+            reasons.append(
+                f"Chandelier Exit 處於空方,停損位於 {formatting.format_price(ce_stop)}"
+            )
+
     # 壓力支撐:價格接近日線級別的支撐區偏多(有機會獲得支撐),接近壓力區偏空。
     # 只採計最接近的一個區,避免多個區間重複給分。
     near_zone_info = None
@@ -138,4 +154,6 @@ def evaluate(
         "ema_slow": latest["ema_slow"],
         "volume_ratio": volume_ratio,
         "near_zone": near_zone_info,
+        "ce_direction": ce_dir,
+        "ce_stop": ce_stop,
     }

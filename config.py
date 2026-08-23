@@ -58,6 +58,12 @@ MACD_SIGNAL = 9
 BB_PERIOD = 20
 BB_STD = 2
 
+# Chandelier Exit(ATR 移動停損)。22 / 3 為 Chuck LeBeau 的原始建議值。
+CE_PERIOD = 22
+CE_MULTIPLIER = 3.0
+# 以收盤價而非最高/最低價取極值,較不受長影線影響(everget 版本的預設)
+CE_USE_CLOSE = True
+
 # 量能確認參數
 # 量能本身沒有方向性,因此不當作獨立訊號,而是用來強化或削弱既有的價格訊號:
 # 放量代表這個方向有籌碼支撐,縮量則代表推力不足、訊號存疑。

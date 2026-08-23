@@ -110,6 +110,47 @@ def make_candlestick_chart(
         )
     )
 
+    # Chandelier Exit 停損線。多空狀態切換時線會跳到另一側,
+    # 因此依狀態拆成兩條繪製,避免跨越時被連成一條斜線。
+    ce_long = chart_df["ce_stop"].where(chart_df["ce_direction"] == 1)
+    ce_short = chart_df["ce_stop"].where(chart_df["ce_direction"] == -1)
+    fig.add_trace(
+        go.Scatter(
+            x=chart_df["timestamp"],
+            y=ce_long,
+            name="CE 停損(多)",
+            line=dict(width=2, color=COLOR_UP),
+            connectgaps=False,
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=chart_df["timestamp"],
+            y=ce_short,
+            name="CE 停損(空)",
+            line=dict(width=2, color=COLOR_DOWN),
+            connectgaps=False,
+        )
+    )
+
+    # 多空翻轉點標示,對應 TradingView 上的 Buy / Sell 標籤
+    flips = chart_df[chart_df["ce_direction"].diff() != 0].iloc[1:]
+    for _, row in flips.iterrows():
+        is_buy = row["ce_direction"] == 1
+        fig.add_annotation(
+            x=row["timestamp"],
+            y=row["low"] if is_buy else row["high"],
+            text="Buy" if is_buy else "Sell",
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=0.8,
+            ay=24 if is_buy else -24,
+            ax=0,
+            bgcolor=COLOR_UP if is_buy else COLOR_DOWN,
+            font=dict(color="white", size=10),
+            bordercolor=COLOR_UP if is_buy else COLOR_DOWN,
+        )
+
     fig.update_layout(
         height=430,
         margin=dict(l=8, r=8, t=30, b=8),
@@ -224,6 +265,12 @@ if evaluations:
                     if ev["volume_ratio"] is not None
                     else "—"
                 ),
+                "CE": "多" if ev["ce_direction"] == 1 else "空",
+                "CE停損": (
+                    formatting.format_price(ev["ce_stop"])
+                    if ev["ce_stop"] is not None
+                    else "—"
+                ),
                 "鄰近區間": (
                     f"{ev['near_zone']['kind']}×{ev['near_zone']['touches']}"
                     if ev["near_zone"]
@@ -286,6 +333,19 @@ if evaluations:
                 f"{ev['volume_ratio']:.2f}x" if ev["volume_ratio"] is not None else "—",
                 help="相對過去 20 根 K 棒均量。僅加密貨幣標的套用量能確認。",
             )
+
+            if ev["ce_stop"] is not None:
+                gap = (ev["price"] - ev["ce_stop"]) / ev["price"] * 100
+                st.metric(
+                    f"Chandelier Exit 停損({'多方' if ev['ce_direction'] == 1 else '空方'})",
+                    formatting.format_price(ev["ce_stop"]),
+                    delta=f"距現價 {abs(gap):.2f}%",
+                    delta_color="off",
+                    help=(
+                        f"ATR({config.CE_PERIOD})×{config.CE_MULTIPLIER} 的移動停損。"
+                        "持多時只往上抬、持空時只往下降,收盤價跌破即翻轉方向。"
+                    ),
+                )
 
             st.markdown("**觸發條件**")
             for reason in ev["reasons"]:
