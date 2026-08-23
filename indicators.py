@@ -70,6 +70,67 @@ def add_chandelier_exit(df: pd.DataFrame, timeframe: str | None = None) -> pd.Da
     return df
 
 
+def _linreg_endpoint(series: pd.Series, n: int) -> pd.Series:
+    """每個滾動視窗做最小平方線性迴歸,取迴歸線在最新一根的值。
+
+    等同 Pine 的 linreg(source, n, 0)。x 固定為 0..n-1,因此 Σx 與 Σx²
+    可先算好,只需滾動求 Σy 與 Σxy。
+    """
+    x = np.arange(n)
+    sx = x.sum()
+    sxx = (x * x).sum()
+    denom = n * sxx - sx * sx
+
+    sy = series.rolling(n).sum()
+    sxy = series.rolling(n).apply(lambda w: float(np.dot(x, w)), raw=True)
+
+    slope = (n * sxy - sx * sy) / denom
+    intercept = (sy - slope * sx) / n
+    return intercept + slope * (n - 1)
+
+
+def add_squeeze_momentum(df: pd.DataFrame) -> pd.DataFrame:
+    """附加 Squeeze Momentum 的擠壓狀態與動能值。
+
+    擠壓判定比較兩種通道的寬窄:
+        布林通道(標準差)完全落在肯特納通道(真實區間)內 → 擠壓中
+        布林通道完全撐出肯特納通道外                     → 擠壓釋放
+
+    動能取「收盤價偏離中軸」的線性迴歸,中軸為唐奇安中線與均線的平均。
+    擠壓本身沒有方向,方向由動能的正負決定。
+    """
+    df = df.copy()
+    n_bb = config.SQZ_BB_PERIOD
+    n_kc = config.SQZ_KC_PERIOD
+
+    basis = df["close"].rolling(n_bb).mean()
+    dev = config.SQZ_BB_MULT * df["close"].rolling(n_bb).std(ddof=0)
+    upper_bb, lower_bb = basis + dev, basis - dev
+
+    ma = df["close"].rolling(n_kc).mean()
+    tr = AverageTrueRange(
+        high=df["high"], low=df["low"], close=df["close"], window=1
+    ).average_true_range()
+    range_ma = tr.rolling(n_kc).mean()
+    upper_kc = ma + range_ma * config.SQZ_KC_MULT
+    lower_kc = ma - range_ma * config.SQZ_KC_MULT
+
+    sqz_on = (lower_bb > lower_kc) & (upper_bb < upper_kc)
+    sqz_off = (lower_bb < lower_kc) & (upper_bb > upper_kc)
+
+    df["sqz_on"] = sqz_on
+    # 三態:擠壓中 / 已釋放 / 兩者皆非(過渡)
+    df["sqz_state"] = np.where(sqz_on, "擠壓中", np.where(sqz_off, "已釋放", "過渡"))
+
+    midline = (
+        df["high"].rolling(n_kc).max() + df["low"].rolling(n_kc).min()
+    ) / 2
+    midline = (midline + df["close"].rolling(n_kc).mean()) / 2
+    df["sqz_momentum"] = _linreg_endpoint(df["close"] - midline, n_kc)
+
+    return df
+
+
 def add_indicators(df: pd.DataFrame, timeframe: str | None = None) -> pd.DataFrame:
     """在 OHLCV DataFrame 上附加指標欄位,回傳新的 DataFrame。
 
@@ -103,5 +164,6 @@ def add_indicators(df: pd.DataFrame, timeframe: str | None = None) -> pd.DataFra
     df["volume_ratio"] = df["volume"] / df["volume_ma"].replace(0, pd.NA)
 
     df = add_chandelier_exit(df, timeframe)
+    df = add_squeeze_momentum(df)
 
     return df

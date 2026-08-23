@@ -1,8 +1,10 @@
 """Market Signal Radar — 多空訊號儀表板(Streamlit)。"""
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from plotly.subplots import make_subplots
 
 import config
 import data_fetcher
@@ -21,6 +23,16 @@ COLOR_EMA_SLOW = "#f59e0b"
 COLOR_BAND = "#94a3b8"
 COLOR_GRID = "#e2e8f0"
 
+# Squeeze Momentum 的四色柱:深色為動能增強、淺色為動能減弱
+COLOR_SQZ_UP_STRONG = "#16a34a"
+COLOR_SQZ_UP_WEAK = "#86efac"
+COLOR_SQZ_DOWN_STRONG = "#dc2626"
+COLOR_SQZ_DOWN_WEAK = "#fca5a5"
+# 零軸上的擠壓狀態點
+COLOR_SQZ_ON = "#0f172a"
+COLOR_SQZ_OFF = "#94a3b8"
+COLOR_SQZ_NONE = "#2563eb"
+
 # 每個訊號標籤對應的圖示與底色(底色用於總覽表格)
 SIGNAL_STYLE = {
     "強烈做多": ("🟢🟢", "#dcfce7"),
@@ -34,10 +46,17 @@ SIGNAL_STYLE = {
 def make_candlestick_chart(
     df: pd.DataFrame, symbol: str, zones: list | None = None
 ) -> go.Figure:
-    """畫出蠟燭圖,疊加 EMA 快慢線、布林通道與日線壓力支撐區。"""
+    """畫出蠟燭圖(疊加 EMA、布林通道、CE 停損與壓力支撐區),
+    下方副圖為 Squeeze Momentum 動能柱與擠壓狀態。"""
     chart_df = df.tail(CHART_BARS)
 
-    fig = go.Figure()
+    fig = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.04,
+        row_heights=[0.72, 0.28],
+    )
 
     # 壓力支撐區畫成整幅橫帶,先畫才會落在 K 棒下層不擋住價格。
     # 只畫上下最近各一個:離現價過遠的區間短期內碰不到,畫出來只是干擾。
@@ -58,6 +77,7 @@ def make_candlestick_chart(
                 annotation_font=dict(
                     size=10, color=COLOR_UP if is_support else COLOR_DOWN
                 ),
+                row=1, col=1,
             )
     fig.add_trace(
         go.Scatter(
@@ -65,7 +85,8 @@ def make_candlestick_chart(
             y=chart_df["bb_upper"],
             name="布林上軌",
             line=dict(width=1, dash="dot", color=COLOR_BAND),
-        )
+        ),
+        row=1, col=1,
     )
     fig.add_trace(
         go.Scatter(
@@ -76,7 +97,8 @@ def make_candlestick_chart(
             # 與上軌之間填色,讓通道範圍一眼可辨
             fill="tonexty",
             fillcolor="rgba(148, 163, 184, 0.10)",
-        )
+        ),
+        row=1, col=1,
     )
     fig.add_trace(
         go.Candlestick(
@@ -91,7 +113,8 @@ def make_candlestick_chart(
             decreasing_line_color=COLOR_DOWN,
             decreasing_fillcolor=COLOR_DOWN,
             line=dict(width=1),
-        )
+        ),
+        row=1, col=1,
     )
     fig.add_trace(
         go.Scatter(
@@ -99,7 +122,8 @@ def make_candlestick_chart(
             y=chart_df["ema_fast"],
             name=f"EMA{config.EMA_FAST}",
             line=dict(width=1.6, color=COLOR_EMA_FAST),
-        )
+        ),
+        row=1, col=1,
     )
     fig.add_trace(
         go.Scatter(
@@ -107,7 +131,8 @@ def make_candlestick_chart(
             y=chart_df["ema_slow"],
             name=f"EMA{config.EMA_SLOW}",
             line=dict(width=1.6, color=COLOR_EMA_SLOW),
-        )
+        ),
+        row=1, col=1,
     )
 
     # Chandelier Exit 停損線。多空狀態切換時線會跳到另一側,
@@ -121,7 +146,8 @@ def make_candlestick_chart(
             name="CE 停損(多)",
             line=dict(width=2, color=COLOR_UP),
             connectgaps=False,
-        )
+        ),
+        row=1, col=1,
     )
     fig.add_trace(
         go.Scatter(
@@ -130,7 +156,8 @@ def make_candlestick_chart(
             name="CE 停損(空)",
             line=dict(width=2, color=COLOR_DOWN),
             connectgaps=False,
-        )
+        ),
+        row=1, col=1,
     )
 
     # 多空翻轉點標示,對應 TradingView 上的 Buy / Sell 標籤
@@ -149,11 +176,59 @@ def make_candlestick_chart(
             bgcolor=COLOR_UP if is_buy else COLOR_DOWN,
             font=dict(color="white", size=10),
             bordercolor=COLOR_UP if is_buy else COLOR_DOWN,
+            row=1, col=1,
         )
 
+    # ── 副圖:Squeeze Momentum ──
+    mom = chart_df["sqz_momentum"]
+    prev_mom = mom.shift(1)
+    # 四色柱:零軸上下決定方向,與前一根比較決定強弱。
+    # 深色為動能增強、淺色為動能減弱 —— 淺色是動能轉折的預警,
+    # 價格尚未反轉但推力已在消退。
+    bar_colors = np.where(
+        mom > 0,
+        np.where(mom > prev_mom, COLOR_SQZ_UP_STRONG, COLOR_SQZ_UP_WEAK),
+        np.where(mom < prev_mom, COLOR_SQZ_DOWN_STRONG, COLOR_SQZ_DOWN_WEAK),
+    )
+    fig.add_trace(
+        go.Bar(
+            x=chart_df["timestamp"],
+            y=mom,
+            name="Squeeze 動能",
+            marker_color=bar_colors,
+            showlegend=False,
+        ),
+        row=2, col=1,
+    )
+
+    # 零軸上的擠壓狀態點
+    state_color = {
+        "擠壓中": COLOR_SQZ_ON,
+        "已釋放": COLOR_SQZ_OFF,
+        "過渡": COLOR_SQZ_NONE,
+    }
+    fig.add_trace(
+        go.Scatter(
+            x=chart_df["timestamp"],
+            y=np.zeros(len(chart_df)),
+            mode="markers",
+            name="擠壓狀態",
+            marker=dict(
+                size=4,
+                color=[state_color[s] for s in chart_df["sqz_state"]],
+                symbol="x",
+            ),
+            showlegend=False,
+            hovertemplate="%{customdata}<extra></extra>",
+            customdata=chart_df["sqz_state"],
+        ),
+        row=2, col=1,
+    )
+
     fig.update_layout(
-        height=430,
+        height=560,
         margin=dict(l=8, r=8, t=30, b=8),
+        bargap=0.15,
         xaxis_rangeslider_visible=False,
         plot_bgcolor="white",
         paper_bgcolor="rgba(0,0,0,0)",
@@ -170,6 +245,7 @@ def make_candlestick_chart(
     )
     fig.update_xaxes(showgrid=True, gridcolor=COLOR_GRID, linecolor=COLOR_GRID)
     fig.update_yaxes(showgrid=True, gridcolor=COLOR_GRID, linecolor=COLOR_GRID)
+    fig.update_yaxes(title_text="Squeeze", title_font=dict(size=10), row=2, col=1)
     return fig
 
 
@@ -288,6 +364,7 @@ if evaluations:
                     if ev["volume_ratio"] is not None
                     else "—"
                 ),
+                "擠壓": indicator_dfs[symbol]["sqz_state"].iloc[-2],
                 "CE": "多" if ev["ce_direction"] == 1 else "空",
                 "CE停損": (
                     formatting.format_price(ev["ce_stop"])

@@ -84,6 +84,17 @@ def ce_period(timeframe: str) -> int:
     """取得該時框對應的 Chandelier Exit 期數。"""
     return CE_PERIOD_BY_TIMEFRAME.get(timeframe, CE_PERIOD_DEFAULT)
 
+
+# Squeeze Momentum(John Carter 的 TTM Squeeze,LazyBear 移植版)。
+# 布林通道量測統計波動(標準差)、肯特納通道量測實際波動(真實區間);
+# 布林縮進肯特納內代表波動壓縮,價格被壓在極窄範圍,後續常見波動放大。
+# 此指標僅供參考,不納入計分 —— 擠壓本身沒有方向性,它回答的是
+# 「現在是盤整還是趨勢」,與其他判斷多空的規則性質不同。
+SQZ_BB_PERIOD = 20
+SQZ_BB_MULT = 2.0
+SQZ_KC_PERIOD = 20
+SQZ_KC_MULT = 1.5
+
 # 量能確認參數
 # 量能本身沒有方向性,因此不當作獨立訊號,而是用來強化或削弱既有的價格訊號:
 # 放量代表這個方向有籌碼支撐,縮量則代表推力不足、訊號存疑。
