@@ -10,7 +10,7 @@
 
 | 元件 | 說明 |
 |---|---|
-| Streamlit 儀表板 | 隨時打開檢視所有標的的訊號、指標數值與 K 線圖 |
+| Streamlit 儀表板 | 隨時打開檢視所有標的的訊號、指標數值與 K 線圖,可切換 1h / 4h / 日線 |
 | LINE 通知 | 定時執行 `check_signals.py`,訊號變化時推播 |
 
 兩者共用同一套計分邏輯([signals.py](signals.py)),但獨立運作 —— 儀表板掛掉不影響通知。
@@ -61,12 +61,20 @@ MACD 是唯一需要比較前後兩根 K 棒的規則(判斷是否發生穿越),
 
 ## 第二階段:Chandelier Exit(±1 分)
 
-ATR 移動停損(Chuck LeBeau 提出,Alexander Elder 推廣),參數 22 / 3:
+ATR 移動停損(Chuck LeBeau 提出,Alexander Elder 推廣):
 
 ```
-多方停損 = 近 22 根最高 − ATR(22) × 3
-空方停損 = 近 22 根最低 + ATR(22) × 3
+多方停損 = 近 N 根最高 − ATR(N) × 3
+空方停損 = 近 N 根最低 + ATR(N) × 3
 ```
+
+**期數 N 隨時框縮放。** LeBeau 的原始建議值 22 是針對日線 —— 22 根日線約等於一個交易月,停損緩衝反映「近一個月的波動範圍」。直接套到 1 小時線會失去這個用意:22 根只有不到一天,停損線反映的是昨天到今天的價格結構,而非一段有意義的趨勢。
+
+| 時框 | 期數 | 涵蓋時間 |
+|---|---|---|
+| 1h | 72 | 3 天 |
+| 4h | 42 | 一週 |
+| 1d | 22 | 一個月(原始建議值) |
 
 停損只往有利方向移動 —— 持多時只抬不降,價格回檔但未創新高則原地不動。收盤價跌破多方停損即翻空,反之翻多。
 
@@ -216,8 +224,10 @@ Chandelier Exit 的影響特別大,因為它是狀態型規則,**恆為 ±1 而�
 | `EMA_FAST` / `EMA_SLOW` | 20 / 50 | 快慢均線期數 |
 | `MACD_FAST` / `MACD_SLOW` / `MACD_SIGNAL` | 12 / 26 / 9 | MACD 參數 |
 | `BB_PERIOD` / `BB_STD` | 20 / 2 | 布林通道期數與標準差倍數 |
-| `CE_PERIOD` / `CE_MULTIPLIER` | 22 / 3.0 | Chandelier Exit 的 ATR 期數與倍數 |
+| `CE_PERIOD_BY_TIMEFRAME` | 1h→72、4h→42、1d→22 | Chandelier Exit 期數,隨時框縮放 |
+| `CE_MULTIPLIER` | 3.0 | Chandelier Exit 的 ATR 倍數 |
 | `CE_USE_CLOSE` | True | 取極值時用收盤價而非最高/最低價 |
+| `DASHBOARD_TIMEFRAMES` | 1h、4h、1d | 儀表板可切換的時框(不影響通知) |
 | `VOLUME_MA_PERIOD` | 20 | 均量計算期數 |
 | `VOLUME_SURGE_RATIO` | 1.5 | 放量判定倍數,調低則更容易加分 |
 | `VOLUME_DRY_RATIO` | 0.7 | 縮量判定倍數,調高則更容易扣分 |

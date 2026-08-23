@@ -9,7 +9,7 @@ from ta.volatility import AverageTrueRange, BollingerBands
 import config
 
 
-def add_chandelier_exit(df: pd.DataFrame) -> pd.DataFrame:
+def add_chandelier_exit(df: pd.DataFrame, timeframe: str | None = None) -> pd.DataFrame:
     """附加 Chandelier Exit 的停損線與多空狀態。
 
     以 ATR 為緩衝的移動停損(Chuck LeBeau 提出):
@@ -21,7 +21,7 @@ def add_chandelier_exit(df: pd.DataFrame) -> pd.DataFrame:
     震盪不會觸發翻轉,雜訊比單純的均線穿越少。
     """
     df = df.copy()
-    n = config.CE_PERIOD
+    n = config.ce_period(timeframe or config.TIMEFRAME)
 
     atr = AverageTrueRange(
         high=df["high"], low=df["low"], close=df["close"], window=n
@@ -70,8 +70,12 @@ def add_chandelier_exit(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    """在 OHLCV DataFrame 上附加指標欄位,回傳新的 DataFrame。"""
+def add_indicators(df: pd.DataFrame, timeframe: str | None = None) -> pd.DataFrame:
+    """在 OHLCV DataFrame 上附加指標欄位,回傳新的 DataFrame。
+
+    timeframe 影響 Chandelier Exit 的期數(隨時框縮放),省略時採用
+    config.TIMEFRAME。其餘指標的參數不隨時框改變。
+    """
     df = df.copy()
 
     rsi = RSIIndicator(close=df["close"], window=config.RSI_PERIOD)
@@ -98,6 +102,6 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df["volume_ma"] = df["volume"].rolling(window=config.VOLUME_MA_PERIOD).mean()
     df["volume_ratio"] = df["volume"] / df["volume_ma"].replace(0, pd.NA)
 
-    df = add_chandelier_exit(df)
+    df = add_chandelier_exit(df, timeframe)
 
     return df

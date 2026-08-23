@@ -179,8 +179,10 @@ price_decimals = formatting.price_decimals
 # Streamlit 每次互動(例如展開折疊區塊)都會重跑整個腳本。
 # 沒有快取的話,每次點擊都會對 OKX 發出十餘次請求,既慢又容易被限流。
 @st.cache_data(ttl=300, show_spinner=False)
-def load_indicators(symbol: str) -> pd.DataFrame:
-    return indicators.add_indicators(data_fetcher.fetch_ohlcv(symbol))
+def load_indicators(symbol: str, timeframe: str) -> pd.DataFrame:
+    return indicators.add_indicators(
+        data_fetcher.fetch_ohlcv(symbol, timeframe=timeframe), timeframe
+    )
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -192,7 +194,28 @@ def load_zones(symbol: str, price: float) -> list:
 st.set_page_config(page_title="Market Signal Radar", layout="wide")
 
 st.title("Market Signal Radar")
-st.caption(f"資料來源:OKX 公開 API｜時框:{config.TIMEFRAME}｜僅供參考,非投資建議")
+
+head_left, head_right = st.columns([3, 1])
+with head_right:
+    timeframe = st.selectbox(
+        "K 線時框",
+        config.DASHBOARD_TIMEFRAMES,
+        index=config.DASHBOARD_TIMEFRAMES.index(config.TIMEFRAME),
+        help=(
+            f"僅影響此頁面。LINE 通知固定使用 {config.TIMEFRAME},不受此處切換影響。"
+        ),
+    )
+with head_left:
+    st.caption(
+        f"資料來源:OKX 公開 API｜檢視時框:{timeframe}"
+        f"(通知固定 {config.TIMEFRAME})｜僅供參考,非投資建議"
+    )
+    if timeframe != config.TIMEFRAME:
+        st.info(
+            f"目前檢視 {timeframe} 時框,與通知所用的 {config.TIMEFRAME} 不同,"
+            f"因此下方訊號與你收到的 LINE 內容可能不一致。",
+            icon="ℹ️",
+        )
 
 if st.button("🔄 重新整理"):
     # 清掉快取才會真的重抓,否則按了也是拿到同一份資料
@@ -205,7 +228,7 @@ with st.spinner("抓取資料並計算指標中..."):
     errors = {}
     for symbol in config.SYMBOLS:
         try:
-            df = load_indicators(symbol)
+            df = load_indicators(symbol, timeframe)
         except Exception as exc:
             errors[symbol] = str(exc)
             continue
@@ -342,7 +365,7 @@ if evaluations:
                     delta=f"距現價 {abs(gap):.2f}%",
                     delta_color="off",
                     help=(
-                        f"ATR({config.CE_PERIOD})×{config.CE_MULTIPLIER} 的移動停損。"
+                        f"ATR({config.ce_period(timeframe)})×{config.CE_MULTIPLIER} 的移動停損。"
                         "持多時只往上抬、持空時只往下降,收盤價跌破即翻轉方向。"
                     ),
                 )

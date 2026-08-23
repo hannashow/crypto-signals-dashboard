@@ -34,7 +34,11 @@ ALERT_SYMBOLS = [
 
 # K 線時框(1 小時)
 # 與每小時檢查一次的排程對齊,每次檢查剛好有一根新收盤的 K 棒。
+# 這是 LINE 通知所用的時框;儀表板可另行切換,不影響通知。
 TIMEFRAME = "1h"
+
+# 儀表板可切換的時框選項
+DASHBOARD_TIMEFRAMES = ["1h", "4h", "1d"]
 
 # 顯示時區。交易所回傳的時間戳為 UTC,抓取後即轉為此時區,
 # 因此 K 線圖橫軸與所有時間標示都是這個時區的時間。
@@ -58,11 +62,27 @@ MACD_SIGNAL = 9
 BB_PERIOD = 20
 BB_STD = 2
 
-# Chandelier Exit(ATR 移動停損)。22 / 3 為 Chuck LeBeau 的原始建議值。
-CE_PERIOD = 22
+# Chandelier Exit(ATR 移動停損)。
+# LeBeau 的原始建議值 22 是針對日線 —— 22 根日線約等於一個交易月,
+# 停損緩衝反映的是「近一個月的波動範圍」。
+#
+# 直接把 22 套到 1 小時線會失去這個用意:22 根只有不到一天,停損線
+# 反映的是昨天到今天的價格結構,而非一段有意義的趨勢。因此期數隨時框
+# 縮放,讓各時框都涵蓋相當長度的時間。
+CE_PERIOD_BY_TIMEFRAME = {
+    "1h": 72,   # 3 天
+    "4h": 42,   # 一週
+    "1d": 22,   # 一個月(原始建議值)
+}
+CE_PERIOD_DEFAULT = 22
 CE_MULTIPLIER = 3.0
 # 以收盤價而非最高/最低價取極值,較不受長影線影響(everget 版本的預設)
 CE_USE_CLOSE = True
+
+
+def ce_period(timeframe: str) -> int:
+    """取得該時框對應的 Chandelier Exit 期數。"""
+    return CE_PERIOD_BY_TIMEFRAME.get(timeframe, CE_PERIOD_DEFAULT)
 
 # 量能確認參數
 # 量能本身沒有方向性,因此不當作獨立訊號,而是用來強化或削弱既有的價格訊號:
