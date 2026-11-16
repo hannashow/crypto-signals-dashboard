@@ -1,0 +1,61 @@
+name: 保活(避免排程被停用)
+
+# GitHub 會在 public repo「連續 60 天沒有活動」時自動停用排程 workflow,
+# 而且不會通知。cron-job.org 仍會照常呼叫,但 workflow 已停用所以什麼都不會發生,
+# 通知就這樣無聲無息地停掉(2026-10 實際發生過)。
+#
+# 做法:每天檢查一次,只有最近一次 commit 已超過門檻天數才補一筆保活 commit。
+# 平常自己有在改程式時不會產生任何雜訊;門檻設在 40 天,距離 60 天上限
+# 還有約 20 次每日嘗試的餘裕,即使 GitHub 偶爾丟掉排程也不會落空。
+#
+# 注意:官方文件並未定義何謂「活動」,此做法依據的是社群普遍回報有效的
+# 「對預設分支 commit」,無法在不等滿 60 天的情況下完整驗證。
+
+on:
+  schedule:
+    # 每天 UTC 03:23(台灣 11:23)。避開整點,GitHub 建議如此以降低被丟棄的機率。
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "無視天數門檻,強制提交一筆(測試用)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    env:
+      THRESHOLD_DAYS: "40"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 判斷是否需要保活
+        id: check
+        env:
+          FORCE: ${{ inputs.force }}
+        run: |
+          last=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          age_days=$(( (now - last) / 86400 ))
+          echo "最近一次 commit 距今 ${age_days} 天(門檻 ${THRESHOLD_DAYS} 天)"
+          if [ "$FORCE" = "true" ] || [ "$age_days" -ge "$THRESHOLD_DAYS" ]; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+            echo "→ 需要保活"
+          else
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+            echo "→ 近期已有活動,略過"
+          fi
+
+      - name: 寫入保活標記並提交
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .keepalive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .keepalive
+          git commit -m "chore: 保活提交,避免排程因 60 天無活動被停用"
+          git push
