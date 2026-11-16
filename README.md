@@ -311,6 +311,13 @@ LINE 憑證以 GitHub Secrets 提供:`LINE_CHANNEL_ACCESS_TOKEN`、`LINE_USER_ID
 ### 已知注意事項
 
 - **GitHub Actions 內建排程不準時,故以 cron-job.org 為主要觸發來源。** 專案剛建立時內建 cron 完全不觸發(超過 11 小時、十餘個時段皆無),因而改由 cron-job.org 定時呼叫 GitHub API 的 `workflow_dispatch` 端點。內建排程後來自行恢復運作,但實測延遲多在 20–30 分鐘(排定 UTC 03:37 的執行落在 04:02、13:37 落在 14:07),符合 GitHub 文件所述「高負載時排程會延遲甚至丟棄」。目前兩個觸發來源並存,重複觸發不會造成重複通知(去重機制擋掉)。
+- **public repo 連續 60 天沒有活動,GitHub 會無聲停用排程 workflow。** 2026-10-22 實際發生過:workflow 被標為 `disabled_inactivity`,cron-job.org 仍每小時呼叫但什麼都不會發生,**通知停了近一個月卻沒有任何提示**。連帶 cron-job.org 的 job 也因連續失敗被它自己停用。
+  - 對策是 [keepalive.yml](.github/workflows/keepalive.yml):每天檢查一次,僅在最近一次 commit 超過 40 天時才補一筆保活 commit(寫入根目錄的 `.keepalive`),平常有在改程式時不產生雜訊。
+  - 官方文件並未定義何謂「活動」,此做法依據的是社群普遍回報有效的「對預設分支 commit」,**無法在不等滿 60 天的情況下完整驗證**。曾有人用 API 停用再啟用 workflow 來重置計時,實測無效,故未採用。
+  - 保活 commit 會觸發 Streamlit Cloud 重新部署一次,約每 40 天以上才會發生。
+  - 若通知又停了,先檢查:`gh api repos/hannashow/crypto-signals-dashboard/actions/workflows --jq '.workflows[] | "\(.name) \(.state)"'`,狀態不是 `active` 就用 `gh workflow enable` 重新啟用,再到 cron-job.org 確認 job 沒被停用。
+- **cron-job.org 的 GitHub token 有到期日。** 到期後會收到 401,job 連續失敗後被自動停用,通知同樣無聲無息地停掉。建議把到期日記在行事曆上。
+- **`gh` 的登入帳號必須是 repo 擁有者(`hannashow`)。** 曾因登入成另一個帳號而只有唯讀權限,啟用 workflow 與推送都被 403 擋下。`gh auth login` 走瀏覽器授權時會沿用瀏覽器當下登入的 GitHub 帳號,要換帳號需先登出或用無痕視窗,再以 `gh auth switch --user hannashow` 切換。
 - **修改 `app.py` 以外的檔案後,Streamlit Cloud 需手動 Reboot。** Streamlit 重跑 `app.py` 時不會重新載入已 import 的模組,新舊程式碼混用會產生 TypeError 之類的錯誤。
 - **Binance 與 Bybit 封鎖雲端主機 IP**(451 / 403),故資料來源使用 OKX。
 - **未使用 ccxt。** ccxt 抓資料前會載入交易所全部市場定義(OKX 逾四千個),記憶體開銷對 Streamlit Cloud 免費方案偏重,改為直接呼叫 OKX REST API。
